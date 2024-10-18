@@ -1,8 +1,9 @@
 from __future__ import annotations
 from dataclasses import dataclass
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
-from .terrain import generate_reference_and_limits
+from terrain import generate_reference_and_limits
 
 class Submarine:
     def __init__(self):
@@ -75,15 +76,18 @@ class Mission:
 
     @classmethod
     def from_csv(cls, file_name: str):
-        # You are required to implement this method
-        #
-        #
-        pass
+        df = pd.read_csv(file_name)
+        reference = df['reference'].to_numpy()
+        cave_height = df['cave_height'].to_numpy()
+        cave_depth = df['cave_depth'].to_numpy()
+        return cls(reference, cave_height, cave_depth)
+
+        
 
 
 class ClosedLoop:
-    def __init__(self, plant: Submarine, controller):
-        self.plant = plant
+    def __init__(self, submarine: Submarine, controller: Controller):
+        self.submarine = submarine
         self.controller = controller
 
     def simulate(self,  mission: Mission, disturbances: np.ndarray) -> Trajectory:
@@ -94,16 +98,28 @@ class ClosedLoop:
         
         positions = np.zeros((T, 2))
         actions = np.zeros(T)
-        self.plant.reset_state()
+        self.submarine.reset_state()
 
         for t in range(T):
-            positions[t] = self.plant.get_position()
-            observation_t = self.plant.get_depth()
-            # Call your controller here
-            self.plant.transition(actions[t], disturbances[t])
+            positions[t] = self.submarine.get_position()
+            observation_t = self.submarine.get_depth()
+            reference_t = mission.reference[t]
+            actions[t] = self.controller.get_action(reference_t, observation_t)
+            self.submarine.transition(actions[t], disturbances[t])
 
         return Trajectory(positions)
         
     def simulate_with_random_disturbances(self, mission: Mission, variance: float = 0.5) -> Trajectory:
         disturbances = np.random.normal(0, variance, len(mission.reference))
         return self.simulate(mission, disturbances)
+
+class Controller:
+    def __init__(self):
+        self.kp = 0.15
+        self.kd = 0.6
+        self.errors = [0]
+
+    def get_action(self, reference, depth) -> int:
+        self.errors.append(reference - depth)
+        action = self.kp * self.errors[-1] + self.kd * (self.errors[-1] - self.errors[-2])
+        return action
