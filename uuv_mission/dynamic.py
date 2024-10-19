@@ -119,7 +119,7 @@ class Controller:
         self.kd = 0.6
         self.errors = [0]
 
-    def get_action(self, reference, depth) -> int:
+    def get_action(self, reference: int, depth: int) -> int:
         self.errors.append(reference - depth)
         action = self.kp * self.errors[-1] + self.kd * (self.errors[-1] - self.errors[-2])
         return action
